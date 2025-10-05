@@ -1,70 +1,151 @@
-# Getting Started with Create React App
+````markdown
+# Personalized Quiz & Content Generator
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based learning assistant that turns any text/document into quizzes, explanations, mind maps, flashcards, and a chat tutor. Supports PDF/DOCX ingestion, local notes, and Firebase history. Works with Google Gemini or Groq (free) via a simple transport switch.
 
-## Available Scripts
+## ✨ Features
 
-In the project directory, you can run:
+- Quiz generator with explanations  
+- Concept explanations (Markdown)  
+- Mind map JSON structure (hierarchical nodes)  
+- Flashcards (Q/A with difficulty)  
+- Draggable chat tutor  
+- PDF/DOCX parsing with progress  
+- Firebase user history  
+- Tailwind UI with smooth gradients and skeleton loading  
 
-### `npm start`
+## 🧱 Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend:** React + Vite/CRA, Tailwind CSS  
+- **PDF:** pdfjs-dist  
+- **DOCX:** mammoth  
+- **Auth/DB:** Firebase (optional)  
+- **AI Providers:**  
+  - Google Gemini: gemini-2.5-flash-lite, gemini-2.5-flash  
+  - Groq (free): Llama 3.x models  
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## ⚙️ Setup
 
-### `npm test`
+1. **Clone**
+   ```bash
+   git clone https://github.com/NaveenCK-10/Personalized-Quiz-Content-Generator.git
+   cd Personalized-Quiz-Content-Generator
+````
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+2. **Install**
 
-### `npm run build`
+   ```bash
+   npm install
+   ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+3. **Environment variables**
+   Create a local `.env` (do not commit) using the template below.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+   For Gemini:
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+   ```bash
+   REACT_APP_GEMINI_API_KEY=your_gemini_key
+   ```
 
-### `npm run eject`
+   For Groq:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+   ```bash
+   REACT_APP_GROQ_API_KEY=your_groq_key
+   REACT_APP_GROQ_MODEL=llama-3.3-70b-versatile
+   ```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+   Firebase (optional):
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+   ```bash
+   REACT_APP_FIREBASE_API_KEY=...
+   REACT_APP_FIREBASE_AUTH_DOMAIN=...
+   REACT_APP_FIREBASE_PROJECT_ID=...
+   REACT_APP_FIREBASE_STORAGE_BUCKET=...
+   REACT_APP_FIREBASE_MESSAGING_SENDER_ID=...
+   REACT_APP_FIREBASE_APP_ID=...
+   ```
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+4. **Run**
 
-## Learn More
+   ```bash
+   npm start
+   ```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## 🔐 Secrets and Security
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+* Never commit `.env`. This repo uses `.gitignore` to exclude it.
+* If a secret was committed accidentally, rotate it immediately and rewrite history before pushing again.
 
-### Code Splitting
+## 🧠 Provider Configuration
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+This project supports both Gemini and Groq with minimal changes.
 
-### Analyzing the Bundle Size
+* **Gemini (generateContent API):**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+  * Explanations: gemini-2.5-flash
+  * Quiz/MindMap/Flashcards/Chat: gemini-2.5-flash-lite
 
-### Making a Progressive Web App
+* **Groq (OpenAI-compatible endpoint):**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+  * Default: llama-3.3-70b-versatile
+  * For large inputs, consider llama-3.1-8b-instant
 
-### Advanced Configuration
+**Switching provider:**
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+* Use the Gemini `Dashboard.jsx` (Gemini transport) or Groq `Dashboard.jsx` (Groq transport).
+* Only the transport layer changes; UI and handlers remain the same.
 
-### Deployment
+## 📄 Supported Inputs
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+* PDF (text extraction via pdfjs-dist)
+* DOCX (text extraction via mammoth)
+* Plain text (textarea)
 
-### `npm run build` fails to minify
+Large files may be trimmed/summarized to avoid API limits.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+## 🧩 Key Files
+
+* `src/pages/Dashboard.jsx` — main UI/logic, transport calls, handlers
+* `src/components/*` — views and UI components
+* `src/contexts/NotesContext.js` — local notes
+* `src/firebase.js` — optional Firebase setup
+
+## 🧪 Development Tips
+
+* If React warns *"Received `true` for a non-boolean attribute `jsx`"*, remove `<style jsx>` and use Tailwind.
+* For JSON outputs, remove Markdown code fences before `JSON.parse`.
+* Disable buttons while loading to avoid duplicate calls.
+* If you hit 429 with Gemini, wait for midnight PT or use Groq temporarily.
+
+## 🚀 Deployment
+
+* Host on Vercel, Netlify, or Render (static build).
+* Configure runtime env vars in host settings (never hard-code keys).
+
+## 📜 Scripts
+
+```bash
+npm start     # dev server
+npm run build # production build
+npm test      # tests (if added)
+```
+
+## 🗺️ Roadmap
+
+* Image/diagram mind map visualization
+* Export flashcards to Anki format
+* Auth-gated history with cloud backup toggle
+
+## 🤝 Contributing
+
+1. Fork the repo
+2. Create a feature branch
+3. Commit with conventional messages
+4. Open a PR
+
+## 📝 License
+
+MIT
+
+```
+```
