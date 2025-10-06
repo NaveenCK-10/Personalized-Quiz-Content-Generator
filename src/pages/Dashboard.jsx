@@ -1,4 +1,3 @@
-// Dashboard.jsx — Gemini Version (2.5 models, JSON parsing fixed, chat aligned)
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -28,6 +27,7 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 // Free-tier friendly defaults
 const MODEL_FLASH_LITE = "gemini-2.5-flash-lite";
 const MODEL_FLASH = "gemini-2.5-flash";
+const MODEL_TTS = "gemini-2.5-flash-preview-tts";
 
 // Helper to build endpoint
 const modelEndpoint = (model) => `${GEMINI_BASE}/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -68,8 +68,34 @@ async function callGemini({ model, text, responseSchema = null, signal }) {
   return res.json();
 }
 
+const generateAudioForText = async (text) => {
+    if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key.");
+
+    const payload = {
+        contents: [{ parts: [{ text: `Read this clearly: ${text}` }] }],
+        generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
+            }
+        }
+    };
+
+    const res = await fetch(modelEndpoint(MODEL_TTS), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(`Gemini TTS API Error ${res.status}: ${errorText || res.statusText}`);
+    }
+
+    const result = await res.json();
+    return result?.candidates?.[0]?.content?.parts?.[0]?.inlineData || null;
+};
 // ---------- Utils ----------
-const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const cleanFences = (s) => s.replace(/^``````$/, "");
 
 const useTypingEffect = (textToType, speed = 80) => {
@@ -236,7 +262,7 @@ function DashboardContent() {
       console.error("Error saving history:", err);
     }
   }, []);
-
+  
   // ---------- Handlers (Gemini) ----------
   const handleGenerateQuiz = useCallback(async () => {
     if (!userText.trim()) return setError("Please provide some text to generate a quiz.");
@@ -280,13 +306,12 @@ Text: ${userText}`;
         signal: controller.signal,
       });
 
-      const raw =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
       const obj = JSON.parse(cleanFences(raw));
       setExplanationData({ main: "", history: [] });
       setQuizData(obj);
       setView("quiz");
-      saveHistory("quiz", { title: obj.quizTitle || "New Quiz" });
+      saveHistory("quiz", { title: obj.quizTitle || "New Quiz", content: obj });
     } catch (e) {
       console.error("Quiz generation failed:", e);
       setError(e.message || "Failed to generate quiz.");
@@ -314,8 +339,7 @@ Text: ${userText}`;
         signal: controller.signal,
       });
 
-      const explanationText =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      const explanationText = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
       if (explanationText) {
         const history = [
           { role: "user", parts: [{ text: `Here is the context for our conversation: """${explanationText}"""` }] },
@@ -324,7 +348,7 @@ Text: ${userText}`;
         setQuizData(null);
         setExplanationData({ main: explanationText, history });
         setView("explanation");
-        saveHistory("explanation", { title: `Explanation: ${userText.substring(0, 40)}...` });
+        saveHistory("explanation", { title: `Explanation: ${userText.substring(0, 40)}...`, content: explanationText });
         setIsChatOpen(true);
       }
     } catch (e) {
@@ -381,7 +405,7 @@ Text: ${userText}`;
       const obj = JSON.parse(cleanFences(raw));
       setMindMapData(obj);
       setView("mindmap");
-      saveHistory("mindmap", { title: obj.title || "Mind Map" });
+      saveHistory("mindmap", { title: obj.title || "Mind Map", content: obj });
     } catch (e) {
       console.error("Mind map generation failed:", e);
       setError(e.message || "Failed to generate mind map.");
@@ -389,17 +413,6 @@ Text: ${userText}`;
       setIsLoading(false);
     }
   }, [userText, saveHistory]);
-  // const generateAudioForText = async (text) => {
-  //       const payload = {
-  //           contents: [{ parts: [{ text: Read this clearly: ${text} }] }],
-  //           generationConfig: {
-  //               responseModalities: ["AUDIO"],
-  //               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
-  //           }
-  //       };
-  //       const result = await makeApiCall(ttsModelApiUrl, payload, true);
-  //       return result?.candidates?.[0]?.content?.parts?.[0]?.inlineData || null;
-  //   };
 
   const handleGenerateFlashcards = useCallback(async () => {
     if (!userText.trim()) return setError("Please provide text to generate flashcards.");
@@ -448,7 +461,7 @@ Text: ${userText}`;
       const obj = JSON.parse(cleanFences(raw));
       setFlashcardsData(obj);
       setView("flashcards");
-      saveHistory("flashcards", { title: obj.title || "Flashcards" });
+      saveHistory("flashcards", { title: obj.title || "Flashcards", content: obj });
     } catch (e) {
       console.error("Flashcards generation failed:", e);
       setError(e.message || "Failed to generate flashcards.");
@@ -507,7 +520,7 @@ Question: ${message}`;
       case "report":
         return <FeedbackReport report={feedbackReport} />;
       case "explanation":
-        return <ExplanationView explanationText={explanationData.main} />;
+        return <ExplanationView explanationText={explanationData.main} generateAudioForText={generateAudioForText}/>;
       case "notes":
         return <NotesView />;
       case "mindmap":
@@ -551,14 +564,14 @@ Question: ${message}`;
 
           <InputSection userText={userText} setUserText={setUserText} handleFileChange={handleFileChange} fileStatus={fileStatus} />
 
-          <Controls 
-            setDifficulty={setDifficulty} 
-            handleGenerateQuiz={handleGenerateQuiz} 
+          <Controls
+            setDifficulty={setDifficulty}
+            handleGenerateQuiz={handleGenerateQuiz}
             handleGenerateExplanation={handleGenerateExplanation}
             handleGenerateMindMap={handleGenerateMindMap}
             handleGenerateFlashcards={handleGenerateFlashcards}
             handleShowNotes={() => setView("notes")}
-            isLoading={isLoading} 
+            isLoading={isLoading}
           />
         </main>
 

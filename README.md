@@ -1,70 +1,97 @@
-# Getting Started with Create React App
+# Personalized Quiz & Content Generator
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based learning assistant that turns any text/document into quizzes, explanations, mind maps, flashcards, and a chat tutor. Supports PDF/DOCX ingestion, local notes, and Firebase history. Works with Google Gemini or Groq (free) via a simple transport switch.
 
-## Available Scripts
+## ✨ Features
 
-In the project directory, you can run:
+* Quiz generator with explanations
+* Concept explanations (Markdown)
+* Mind map JSON structure (hierarchical nodes)
+* Flashcards (Q/A with difficulty)
+* Draggable chat tutor
+* PDF/DOCX parsing with progress
+* Firebase user history
+* Tailwind UI with smooth gradients and skeleton loading
 
-### `npm start`
+## 🧱 Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+* **Frontend:** React + Vite, Tailwind CSS
+* **PDF:** pdfjs-dist
+* **DOCX:** mammoth
+* **Auth/DB:** Firebase (optional)
+* **AI Providers:**
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+  * Google Gemini → gemini-2.5-flash-lite, gemini-2.5-flash
+  * Groq (free) → Llama 3.x models
 
-### `npm test`
+## ⚙️ Setup
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### 1. Clone Repository
 
-### `npm run build`
+```bash
+git clone https://github.com/NaveenCK-10/Personalized-Quiz-Content-Generator.git
+cd Personalized-Quiz-Content-Generator
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### 2. Install Dependencies
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### 3. Environment Variables
 
-### `npm run eject`
+Create a `.env` file in the project root (do not commit). Use `.env.example` as a template:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```ini
+# Choose one provider and fill its key locally. Do not commit real keys.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+# Gemini
+REACT_APP_GEMINI_API_KEY=
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+# Groq
+REACT_APP_GROQ_API_KEY=
+REACT_APP_GROQ_MODEL=llama-3.3-70b-versatile
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+# Firebase (optional)
+REACT_APP_FIREBASE_API_KEY=
+REACT_APP_FIREBASE_AUTH_DOMAIN=
+REACT_APP_FIREBASE_PROJECT_ID=
+REACT_APP_FIREBASE_STORAGE_BUCKET=
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=
+REACT_APP_FIREBASE_APP_ID=
+```
 
-## Learn More
+### 4. Run Development Server
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```bash
+npm run dev
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### 5. Build for Production
 
-### Code Splitting
+```bash
+npm run build
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## 📂 Project Structure
 
-### Analyzing the Bundle Size
+```
+src/
+ ├── components/      # UI components (quiz, flashcards, chat, etc.)
+ ├── pages/           # App pages (Dashboard, Home, etc.)
+ ├── utils/           # AI transport + PDF/DOCX parsing helpers
+ ├── firebase.js      # Firebase config (if enabled)
+ └── App.jsx          # Main entry
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+## 🚀 Usage
 
-### Making a Progressive Web App
+* Upload a **PDF/DOCX** or paste text
+* Choose **Quiz / Explanation / Mind Map / Flashcards**
+* Chat with the **AI Tutor**
+* History is saved in Firebase (if enabled)
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+## 📖 License
 
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+MIT © 2025 Naveen Chandra Kanth

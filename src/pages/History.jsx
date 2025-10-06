@@ -13,7 +13,7 @@ import { formatDistanceToNow, isToday, isYesterday, isThisWeek } from 'date-fns'
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 
-// ---------- Hooks & utils ----------
+// ... (Hooks and utils remain the same) ...
 const useDebounce = (value, delay) => {
   const [debouncedValue, setDebouncedValue] = useState(value);
   useEffect(() => {
@@ -55,6 +55,7 @@ const groupAndFormatHistory = (history) => {
   Object.keys(groups).forEach((k) => { if (groups[k].length === 0) delete groups[k]; });
   return groups;
 };
+
 
 // ---------- Component ----------
 export default function History() {
@@ -224,19 +225,34 @@ export default function History() {
     setTimeout(() => setOpenItem(null), 180);
   };
 
-  // Re-run route handoff
+  // Re-run route handoff - MODIFIED
   const reRunGeneration = (item) => {
+    const navigationState = {
+      type: item.type,
+      sourceText: item.sourceText || '',
+      action: 'rehydrate',
+      fromHistoryId: item.id,
+    };
+
+    switch (item.type) {
+      case 'quiz':
+        navigationState.quizData = item.content || null;
+        break;
+      case 'explanation':
+        navigationState.explanationText = item.content || '';
+        break;
+      case 'flashcards':
+        navigationState.flashcardsData = item.content || null;
+        break;
+      case 'mindmap':
+        navigationState.mindMapData = item.content || null;
+        break;
+      default:
+        break;
+    }
+
     navigate('/dashboard', {
-      state: {
-        type: item.type,
-        sourceText: item.sourceText || '',
-        quizData: item.quizData || null,
-        explanationText: item.explanationText || '',
-        flashcardsData: item.flashcardsData || null,
-        mindMapData: item.mindMapData || null,
-        action: 'rehydrate',
-        fromHistoryId: item.id,
-      },
+      state: navigationState,
       replace: false,
     });
   };
@@ -244,6 +260,7 @@ export default function History() {
   return (
     <div className="min-h-screen text-white font-sans bg-gradient-to-br from-purple-900 via-black to-pink-900">
       <div className="container mx-auto p-4 sm:p-6 md:p-8 max-w-5xl pt-32">
+        {/* ... (Controls section remains the same) ... */}
         <h1 className="text-4xl font-bold tracking-tight mb-4 text-shadow-lg text-center md:text-left">
           Your Learning History
         </h1>
@@ -328,7 +345,7 @@ export default function History() {
           )}
         </div>
 
-        {/* Groups */}
+        {/* ... (History groups list remains the same) ... */}
         {history.length === 0 && !loading ? (
           <div className="text-center py-16">
             <BookOpen size={48} className="mx-auto text-pink-400/50 mb-4" />
@@ -403,6 +420,8 @@ export default function History() {
           ))
         )}
 
+
+        {/* ... (Loading/end of list indicators remain the same) ... */}
         {loading && (
           <div className="flex justify-center items-center h-24 mt-8">
             <Loader2 className="w-8 h-8 animate-spin text-pink-400" />
@@ -423,7 +442,7 @@ export default function History() {
         )}
       </div>
 
-      {/* Right drawer */}
+      {/* Right drawer - MODIFIED */}
       {drawerOpen && openItem && (
         <div className="fixed inset-0 z-50">
           <div className="absolute inset-0 bg-black/40" onClick={closeDrawer} />
@@ -450,20 +469,20 @@ export default function History() {
               {openItem.type === 'explanation' && (
                 <div className="prose prose-invert max-w-none">
                   <ReactMarkdown>
-                    {openItem.explanationText || '_No explanation text saved._'}
+                    {openItem.content || '_No explanation text saved._'}
                   </ReactMarkdown>
                 </div>
               )}
 
               {openItem.type === 'quiz' && (
                 <div className="space-y-4">
-                  {!openItem.quizData && <p className="text-sm text-pink-200/70">No quiz payload saved.</p>}
-                  {openItem.quizData && (
+                  {!openItem.content && <p className="text-sm text-pink-200/70">No quiz payload saved.</p>}
+                  {openItem.content && (
                     <>
                       <p className="text-pink-200/80 text-sm">
                         Quick practice mode (answers are hidden until reveal).
                       </p>
-                      {openItem.quizData.questions?.map((q, idx) => (
+                      {openItem.content.questions?.map((q, idx) => (
                         <details key={idx} className="bg-white/5 rounded-lg p-3 border border-white/10">
                           <summary className="cursor-pointer font-semibold">
                             Q{idx + 1}. {q.questionText}
@@ -496,13 +515,13 @@ export default function History() {
 
               {openItem.type === 'flashcards' && (
                 <div className="space-y-4">
-                  {!openItem.flashcardsData && (
+                  {!openItem.content && (
                     <p className="text-sm text-pink-200/70">No flashcards payload saved.</p>
                   )}
-                  {openItem.flashcardsData && (
+                  {openItem.content && (
                     <div className="bg-white/5 rounded-lg p-4 border border-white/10">
-                      <p className="font-semibold mb-2">{openItem.flashcardsData.title}</p>
-                      {openItem.flashcardsData.flashcards?.length ? (
+                      <p className="font-semibold mb-2">{openItem.content.title}</p>
+                      {openItem.content.flashcards?.length ? (
                         <div className="flex items-center justify-between gap-3">
                           <button
                             className="p-2 rounded hover:bg-white/10"
@@ -512,16 +531,16 @@ export default function History() {
                           </button>
                           <div className="flex-1 text-center">
                             <p className="text-sm text-pink-200/80">
-                              {flashIndex + 1} / {openItem.flashcardsData.flashcards.length}
+                              {flashIndex + 1} / {openItem.content.flashcards.length}
                             </p>
                             <div className="mt-2 bg-black/20 rounded-lg p-3">
                               <p className="font-semibold">
-                                {openItem.flashcardsData.flashcards[flashIndex].question}
+                                {openItem.content.flashcards[flashIndex].question}
                               </p>
                               <details className="mt-2">
                                 <summary className="cursor-pointer text-pink-300">Show answer</summary>
                                 <p className="text-sm">
-                                  {openItem.flashcardsData.flashcards[flashIndex].answer}
+                                  {openItem.content.flashcards[flashIndex].answer}
                                 </p>
                               </details>
                             </div>
@@ -530,7 +549,7 @@ export default function History() {
                             className="p-2 rounded hover:bg-white/10"
                             onClick={() =>
                               setFlashIndex((i) =>
-                                Math.min(openItem.flashcardsData.flashcards.length - 1, i + 1)
+                                Math.min(openItem.content.flashcards.length - 1, i + 1)
                               )
                             }
                           >
@@ -547,12 +566,12 @@ export default function History() {
 
               {openItem.type === 'mindmap' && (
                 <div className="space-y-3">
-                  {!openItem.mindMapData && <p className="text-sm text-pink-200/70">No mind map payload saved.</p>}
-                  {openItem.mindMapData && (
+                  {!openItem.content && <p className="text-sm text-pink-200/70">No mind map payload saved.</p>}
+                  {openItem.content && (
                     <>
-                      <p className="font-semibold">{openItem.mindMapData.title}</p>
+                      <p className="font-semibold">{openItem.content.title}</p>
                       <div className="space-y-2">
-                        {openItem.mindMapData.nodes?.map((n) => (
+                        {openItem.content.nodes?.map((n) => (
                           <div key={n.id} className="bg-white/5 p-2 rounded border border-white/10">
                             <p className="font-semibold">
                               {n.label} <span className="text-xs text-pink-300">lvl {n.level}</span>
