@@ -1,0 +1,9 @@
+[33mcdb3868[m[33m ([m[1;36mHEAD[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull origin main --rebase (start): checkout cdb3868bc6bd55db3ffd82d15910075beeb274a5
+[33ma933c9f[m[33m ([m[1;32mmain[m[33m)[m HEAD@{1}: commit: feat: updated flashcards and mind map
+[33m1fd819a[m HEAD@{2}: reset: moving to HEAD
+[33m1fd819a[m HEAD@{3}: commit: WIP: local changes
+[33m8fe14ed[m HEAD@{4}: commit: feat: initial commit without .env (secret removed)
+[33m387cde3[m HEAD@{5}: reset: moving to HEAD~1
+[33m034b924[m HEAD@{6}: Branch: renamed refs/heads/master to refs/heads/main
+[33m034b924[m HEAD@{8}: commit: feat: initial commit with Gemini/Groq dashboard and components
+[33m387cde3[m HEAD@{9}: commit (initial): Initialize project using Create React App
