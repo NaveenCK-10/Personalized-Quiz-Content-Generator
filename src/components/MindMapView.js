@@ -1,5 +1,5 @@
 // components/MindMapView.js
-import React, { useCallback, useMemo } from 'react';
+import React, { useMemo, useCallback, useEffect } from 'react'; // 👈 1. IMPORT useEffect
 import {
   ReactFlow,
   MiniMap,
@@ -10,8 +10,10 @@ import {
   addEdge,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Lightbulb, Download, ZoomIn } from 'lucide-react';
+import { Lightbulb, Download } from 'lucide-react';
+import dagre from 'dagre';
 
+// Custom node component (no changes needed here)
 const nodeTypes = {
   custom: ({ data }) => (
     <div className={`px-4 py-2 rounded-lg border-2 text-center shadow-lg transition-all hover:scale-105 ${
@@ -29,73 +31,72 @@ const nodeTypes = {
   ),
 };
 
-export default function MindMapView({ mindMapData }) {
-  const initialNodes = useMemo(() => {
-    if (!mindMapData?.nodes) return [];
-    
-    return mindMapData.nodes.map((node, index) => {
-      const level = node.level || 0;
-      let x, y;
-      
-      // Position nodes in a hierarchical layout
-      if (level === 0) {
-        // Root node at center
-        x = 400;
-        y = 200;
-      } else if (level === 1) {
-        // First level nodes in a circle around root
-        const level1Nodes = mindMapData.nodes.filter(n => n.level === 1);
-        const angle = (level1Nodes.indexOf(node) * 2 * Math.PI) / level1Nodes.length;
-        x = 400 + Math.cos(angle) * 250;
-        y = 200 + Math.sin(angle) * 250;
-      } else {
-        // Second level nodes positioned around their parents
-        const parentNode = mindMapData.nodes.find(n => n.id === node.parentId);
-        if (parentNode) {
-          const level1Nodes = mindMapData.nodes.filter(n => n.level === 1);
-          const parentIndex = level1Nodes.indexOf(parentNode);
-          const parentAngle = (parentIndex * 2 * Math.PI) / level1Nodes.length;
-          
-          const siblingNodes = mindMapData.nodes.filter(n => n.parentId === node.parentId && n.level === level);
-          const siblingIndex = siblingNodes.indexOf(node);
-          const siblingOffset = (siblingIndex - (siblingNodes.length - 1) / 2) * 0.3;
-          
-          x = 400 + Math.cos(parentAngle + siblingOffset) * 400;
-          y = 200 + Math.sin(parentAngle + siblingOffset) * 400;
-        } else {
-          x = 400 + (Math.random() - 0.5) * 600;
-          y = 200 + (Math.random() - 0.5) * 400;
-        }
-      }
-      
-      return {
-        id: node.id,
-        type: 'custom',
-        position: { x, y },
-        data: { 
-          label: node.label, 
-          level: level,
-          description: node.description 
-        },
-        draggable: true,
-      };
-    });
-  }, [mindMapData]);
+// Dagre layout function (no changes needed here)
+const getLayoutedElements = (nodes, edges, direction = 'TB') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  const initialEdges = useMemo(() => {
-    if (!mindMapData?.nodes) return [];
+  const nodeWidth = 220;
+  const nodeHeight = 60;
+
+  const isHorizontal = direction === 'LR';
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 50, ranksep: 100 });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const layoutedNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    node.targetPosition = isHorizontal ? 'left' : 'top';
+    node.sourcePosition = isHorizontal ? 'right' : 'bottom';
     
-    return mindMapData.nodes
+    node.position = {
+      x: nodeWithPosition.x - nodeWidth / 2,
+      y: nodeWithPosition.y - nodeHeight / 2,
+    };
+    
+    return node;
+  });
+
+  return { nodes: layoutedNodes, edges };
+};
+
+
+export default function MindMapView({ mindMapData }) {
+  // `useMemo` still calculates the layout (this is correct)
+  const { nodes: layoutedNodes, edges: layoutedEdges } = useMemo(() => {
+    if (!mindMapData?.nodes?.length) {
+      return { nodes: [], edges: [] };
+    }
+    const nodesToLayout = mindMapData.nodes.map(node => ({
+      id: node.id,
+      type: 'custom',
+      data: { 
+        label: node.label, 
+        level: node.level || 0,
+        description: node.description 
+      },
+      position: { x: 0, y: 0 },
+      draggable: true,
+    }));
+    const edgesToLayout = mindMapData.nodes
       .filter(node => node.parentId)
       .map(node => ({
         id: `${node.parentId}-${node.id}`,
         source: node.parentId,
         target: node.id,
-        type: 'smoothstep',
+        type: 'smoothstep', // You can also try 'straight' for a classic tree look
         style: { 
           stroke: '#8b5cf6', 
           strokeWidth: 2,
-          strokeDasharray: node.level > 1 ? '5,5' : 'none'
+          strokeDasharray: (node.level > 1) ? '5,5' : 'none'
         },
         animated: true,
         markerEnd: {
@@ -103,29 +104,41 @@ export default function MindMapView({ mindMapData }) {
           color: '#8b5cf6',
         },
       }));
+    
+    return getLayoutedElements(nodesToLayout, edgesToLayout, 'TB');
   }, [mindMapData]);
 
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  // We initialize state with an empty array or the initial layout
+  const [nodes, setNodes, onNodesChange] = useNodesState(layoutedNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(layoutedEdges);
+
+  // 👇 2. THE FIX: A useEffect HOOK TO SYNC THE STATE
+  // This effect runs whenever the layout calculation finishes (i.e., when
+  // layoutedNodes or layoutedEdges changes). It tells React Flow to
+  // use the new nodes and edges, triggering a re-render with correct positions.
+  useEffect(() => {
+    setNodes(layoutedNodes);
+    setEdges(layoutedEdges);
+  }, [layoutedNodes, layoutedEdges, setNodes, setEdges]);
+
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
+  // ... The rest of your component remains exactly the same
   const exportAsImage = useCallback(() => {
-    // This would require additional setup for image export
-    // For now, we'll show an alert
     alert('Image export feature will be implemented in a future update!');
   }, []);
 
   if (!mindMapData) {
     return (
-      <div className="p-8 text-center text-gray-400">
-        <Lightbulb className="mx-auto w-16 h-16 mb-4 opacity-50" />
-        <p>No mind map data available.</p>
-        <p className="text-sm mt-2">Generate a mind map from your content to see it here.</p>
-      </div>
+        <div className="p-8 text-center text-gray-400">
+            <Lightbulb className="mx-auto w-16 h-16 mb-4 opacity-50" />
+            <p>No mind map data available.</p>
+            <p className="text-sm mt-2">Generate a mind map from your content to see it here.</p>
+        </div>
     );
   }
 
@@ -155,7 +168,7 @@ export default function MindMapView({ mindMapData }) {
         </div>
       </div>
       
-      {/* Mind Map */}
+      {/* Mind Map Canvas */}
       <div style={{ width: '100%', height: '650px' }}>
         <ReactFlow
           nodes={nodes}
@@ -166,7 +179,7 @@ export default function MindMapView({ mindMapData }) {
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{
-            padding: 0.2,
+            padding: 0.1,
             includeHiddenNodes: false,
           }}
           attributionPosition="bottom-left"

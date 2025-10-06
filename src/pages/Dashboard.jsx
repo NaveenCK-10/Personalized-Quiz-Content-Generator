@@ -1,4 +1,3 @@
-// Dashboard.jsx — Gemini Version (2.5 models, JSON parsing fixed, chat aligned)
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getAuth } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
@@ -69,7 +68,6 @@ async function callGemini({ model, text, responseSchema = null, signal }) {
 }
 
 // ---------- Utils ----------
-const wait = (ms) => new Promise((res) => setTimeout(res, ms));
 const cleanFences = (s) => s.replace(/^``````$/, "");
 
 const useTypingEffect = (textToType, speed = 80) => {
@@ -280,13 +278,12 @@ Text: ${userText}`;
         signal: controller.signal,
       });
 
-      const raw =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      const raw = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
       const obj = JSON.parse(cleanFences(raw));
       setExplanationData({ main: "", history: [] });
       setQuizData(obj);
       setView("quiz");
-      saveHistory("quiz", { title: obj.quizTitle || "New Quiz" });
+      saveHistory("quiz", { title: obj.quizTitle || "New Quiz", content: obj });
     } catch (e) {
       console.error("Quiz generation failed:", e);
       setError(e.message || "Failed to generate quiz.");
@@ -314,8 +311,7 @@ Text: ${userText}`;
         signal: controller.signal,
       });
 
-      const explanationText =
-        result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+      const explanationText = result?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
       if (explanationText) {
         const history = [
           { role: "user", parts: [{ text: `Here is the context for our conversation: """${explanationText}"""` }] },
@@ -324,7 +320,7 @@ Text: ${userText}`;
         setQuizData(null);
         setExplanationData({ main: explanationText, history });
         setView("explanation");
-        saveHistory("explanation", { title: `Explanation: ${userText.substring(0, 40)}...` });
+        saveHistory("explanation", { title: `Explanation: ${userText.substring(0, 40)}...`, content: explanationText });
         setIsChatOpen(true);
       }
     } catch (e) {
@@ -381,7 +377,7 @@ Text: ${userText}`;
       const obj = JSON.parse(cleanFences(raw));
       setMindMapData(obj);
       setView("mindmap");
-      saveHistory("mindmap", { title: obj.title || "Mind Map" });
+      saveHistory("mindmap", { title: obj.title || "Mind Map", content: obj });
     } catch (e) {
       console.error("Mind map generation failed:", e);
       setError(e.message || "Failed to generate mind map.");
@@ -437,7 +433,7 @@ Text: ${userText}`;
       const obj = JSON.parse(cleanFences(raw));
       setFlashcardsData(obj);
       setView("flashcards");
-      saveHistory("flashcards", { title: obj.title || "Flashcards" });
+      saveHistory("flashcards", { title: obj.title || "Flashcards", content: obj });
     } catch (e) {
       console.error("Flashcards generation failed:", e);
       setError(e.message || "Failed to generate flashcards.");
@@ -540,14 +536,14 @@ Question: ${message}`;
 
           <InputSection userText={userText} setUserText={setUserText} handleFileChange={handleFileChange} fileStatus={fileStatus} />
 
-          <Controls 
-            setDifficulty={setDifficulty} 
-            handleGenerateQuiz={handleGenerateQuiz} 
+          <Controls
+            setDifficulty={setDifficulty}
+            handleGenerateQuiz={handleGenerateQuiz}
             handleGenerateExplanation={handleGenerateExplanation}
             handleGenerateMindMap={handleGenerateMindMap}
             handleGenerateFlashcards={handleGenerateFlashcards}
             handleShowNotes={() => setView("notes")}
-            isLoading={isLoading} 
+            isLoading={isLoading}
           />
         </main>
 
