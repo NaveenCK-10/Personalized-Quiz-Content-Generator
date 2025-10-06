@@ -27,6 +27,7 @@ const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 // Free-tier friendly defaults
 const MODEL_FLASH_LITE = "gemini-2.5-flash-lite";
 const MODEL_FLASH = "gemini-2.5-flash";
+const MODEL_TTS = "gemini-2.5-flash-preview-tts";
 
 // Helper to build endpoint
 const modelEndpoint = (model) => `${GEMINI_BASE}/${model}:generateContent?key=${GEMINI_API_KEY}`;
@@ -67,6 +68,33 @@ async function callGemini({ model, text, responseSchema = null, signal }) {
   return res.json();
 }
 
+const generateAudioForText = async (text) => {
+    if (!GEMINI_API_KEY) throw new Error("Missing Gemini API key.");
+
+    const payload = {
+        contents: [{ parts: [{ text: `Read this clearly: ${text}` }] }],
+        generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+                voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } }
+            }
+        }
+    };
+
+    const res = await fetch(modelEndpoint(MODEL_TTS), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+        const errorText = await res.text().catch(() => "");
+        throw new Error(`Gemini TTS API Error ${res.status}: ${errorText || res.statusText}`);
+    }
+
+    const result = await res.json();
+    return result?.candidates?.[0]?.content?.parts?.[0]?.inlineData || null;
+};
 // ---------- Utils ----------
 const cleanFences = (s) => s.replace(/^``````$/, "");
 
@@ -234,7 +262,7 @@ function DashboardContent() {
       console.error("Error saving history:", err);
     }
   }, []);
-
+  
   // ---------- Handlers (Gemini) ----------
   const handleGenerateQuiz = useCallback(async () => {
     if (!userText.trim()) return setError("Please provide some text to generate a quiz.");
@@ -492,7 +520,7 @@ Question: ${message}`;
       case "report":
         return <FeedbackReport report={feedbackReport} />;
       case "explanation":
-        return <ExplanationView explanationText={explanationData.main} />;
+        return <ExplanationView explanationText={explanationData.main} generateAudioForText={generateAudioForText}/>;
       case "notes":
         return <NotesView />;
       case "mindmap":
