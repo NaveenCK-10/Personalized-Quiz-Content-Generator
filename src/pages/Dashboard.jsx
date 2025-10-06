@@ -389,6 +389,17 @@ Text: ${userText}`;
       setIsLoading(false);
     }
   }, [userText, saveHistory]);
+  // const generateAudioForText = async (text) => {
+  //       const payload = {
+  //           contents: [{ parts: [{ text: Read this clearly: ${text} }] }],
+  //           generationConfig: {
+  //               responseModalities: ["AUDIO"],
+  //               speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Puck" } } }
+  //           }
+  //       };
+  //       const result = await makeApiCall(ttsModelApiUrl, payload, true);
+  //       return result?.candidates?.[0]?.content?.parts?.[0]?.inlineData || null;
+  //   };
 
   const handleGenerateFlashcards = useCallback(async () => {
     if (!userText.trim()) return setError("Please provide text to generate flashcards.");
