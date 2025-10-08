@@ -1,32 +1,34 @@
-// components/MindMapView.js - ADVANCED NO OVERLAPPING VERSION
-import React, { useEffect, useRef, useCallback } from 'react';
+// components/MindMapView.js - ULTIMATE VISUAL ENHANCEMENT VERSION
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import * as d3 from 'd3';
-import { Lightbulb, Download, ZoomIn, ZoomOut, Maximize2, Filter } from 'lucide-react';
+import { Lightbulb, Download, ZoomIn, ZoomOut, Maximize2, Filter, Sparkles } from 'lucide-react';
 
 export default function MindMapView({ mindMapData }) {
   const svgRef = useRef(null);
   const containerRef = useRef(null);
   const zoomRef = useRef(null);
+  const [tooltip, setTooltip] = useState({ show: false, x: 0, y: 0, content: '' });
 
   const filterToImportantNodes = useCallback((nodes, maxNodes = 25) => {
     if (!nodes?.length) return [];
 
     const scoredNodes = nodes.map(node => {
       let score = 0;
-      if (node.level === 0) score += 1000;
-      else if (node.level === 1) score += 100;
-      else if (node.level === 2) score += 10;
-      
+      if (node.priority) {
+        score = node.priority * 200;
+      } else {
+        if (node.level === 0) score += 1000;
+        else if (node.level === 1) score += 100;
+        else if (node.level === 2) score += 10;
+      }
+
       const childCount = nodes.filter(n => n.parentId === node.id).length;
       score += childCount * 5;
-      
+
       return { ...node, score };
     });
 
-    const topNodes = scoredNodes
-      .sort((a, b) => b.score - a.score)
-      .slice(0, maxNodes);
-
+    const topNodes = scoredNodes.sort((a, b) => b.score - a.score).slice(0, maxNodes);
     const selectedIds = new Set(topNodes.map(n => n.id));
     const withParents = [...topNodes];
 
@@ -45,7 +47,33 @@ export default function MindMapView({ mindMapData }) {
       }
     });
 
-    return withParents;
+    const finalNodes = withParents.filter(node => {
+      if (!node.parentId || node.parentId === '' || node.level === 0) return true;
+      return selectedIds.has(node.parentId);
+    });
+
+    const rootNodes = finalNodes.filter(n => !n.parentId || n.parentId === '' || n.level === 0);
+    
+    if (rootNodes.length === 0) return [];
+    
+    if (rootNodes.length > 1) {
+      const mainRoot = rootNodes[0];
+      const validIds = new Set([mainRoot.id]);
+      
+      const addChildren = (parentId) => {
+        finalNodes.forEach(node => {
+          if (node.parentId === parentId && !validIds.has(node.id)) {
+            validIds.add(node.id);
+            addChildren(node.id);
+          }
+        });
+      };
+      
+      addChildren(mainRoot.id);
+      return finalNodes.filter(n => validIds.has(n.id));
+    }
+
+    return finalNodes;
   }, []);
 
   useEffect(() => {
@@ -63,324 +91,345 @@ export default function MindMapView({ mindMapData }) {
       .attr('height', height);
 
     const defs = svg.append('defs');
+    
+    // Background grid
+    const pattern = defs.append('pattern')
+      .attr('id', 'grid')
+      .attr('width', 40)
+      .attr('height', 40)
+      .attr('patternUnits', 'userSpaceOnUse');
 
-    // Enhanced gradients with multiple stops
-    const purpleGradient = defs.append('linearGradient')
-      .attr('id', 'purpleGradient')
-      .attr('x1', '0%').attr('y1', '0%')
-      .attr('x2', '100%').attr('y2', '100%');
-    purpleGradient.append('stop').attr('offset', '0%').attr('stop-color', '#a855f7');
-    purpleGradient.append('stop').attr('offset', '50%').attr('stop-color', '#9333ea');
-    purpleGradient.append('stop').attr('offset', '100%').attr('stop-color', '#ec4899');
+    pattern.append('path')
+      .attr('d', 'M 40 0 L 0 0 0 40')
+      .attr('fill', 'none')
+      .attr('stroke', '#2a2a3d')
+      .attr('stroke-width', 0.8);
 
-    const blueGradient = defs.append('linearGradient')
-      .attr('id', 'blueGradient')
-      .attr('x1', '0%').attr('y1', '0%')
-      .attr('x2', '100%').attr('y2', '100%');
-    blueGradient.append('stop').attr('offset', '0%').attr('stop-color', '#60a5fa');
-    blueGradient.append('stop').attr('offset', '50%').attr('stop-color', '#3b82f6');
-    blueGradient.append('stop').attr('offset', '100%').attr('stop-color', '#06b6d4');
+    svg.append('rect')
+      .attr('width', '100%')
+      .attr('height', '100%')
+      .attr('fill', 'url(#grid)');
 
-    const greenGradient = defs.append('linearGradient')
-      .attr('id', 'greenGradient')
-      .attr('x1', '0%').attr('y1', '0%')
-      .attr('x2', '100%').attr('y2', '100%');
-    greenGradient.append('stop').attr('offset', '0%').attr('stop-color', '#34d399');
-    greenGradient.append('stop').attr('offset', '50%').attr('stop-color', '#10b981');
-    greenGradient.append('stop').attr('offset', '100%').attr('stop-color', '#059669');
+    // Gradients
+    const gradients = {
+      purple: ['#a855f7', '#9333ea', '#ec4899'],
+      blue: ['#60a5fa', '#3b82f6', '#06b6d4'],
+      green: ['#34d399', '#10b981', '#059669'],
+      gold: ['#fbbf24', '#f59e0b', '#d97706'],
+    };
 
-    // Enhanced glow filter
-    const glowFilter = defs.append('filter').attr('id', 'glow');
-    glowFilter.append('feGaussianBlur').attr('stdDeviation', '4').attr('result', 'coloredBlur');
-    const feMerge = glowFilter.append('feMerge');
-    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+    Object.entries(gradients).forEach(([id, colors]) => {
+      const grad = defs.append('linearGradient')
+        .attr('id', `${id}Gradient`)
+        .attr('x1', '0%').attr('y1', '0%')
+        .attr('x2', '100%').attr('y2', '100%');
 
-    // Stronger glow for root
+      grad.selectAll('stop')
+        .data(colors)
+        .enter()
+        .append('stop')
+        .attr('offset', (d, i) => `${(i / (colors.length - 1)) * 100}%`)
+        .attr('stop-color', d => d);
+    });
+
+    // Filters
+    const glow = defs.append('filter').attr('id', 'glow');
+    glow.append('feGaussianBlur').attr('stdDeviation', '3').attr('result', 'blur');
+    const merge = glow.append('feMerge');
+    merge.append('feMergeNode').attr('in', 'blur');
+    merge.append('feMergeNode').attr('in', 'SourceGraphic');
+
     const strongGlow = defs.append('filter').attr('id', 'strongGlow');
-    strongGlow.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'coloredBlur');
-    const strongMerge = strongGlow.append('feMerge');
-    strongMerge.append('feMergeNode').attr('in', 'coloredBlur');
-    strongMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+    strongGlow.append('feGaussianBlur').attr('stdDeviation', '6').attr('result', 'blur');
+    const merge2 = strongGlow.append('feMerge');
+    merge2.append('feMergeNode').attr('in', 'blur');
+    merge2.append('feMergeNode').attr('in', 'SourceGraphic');
+
+    const extremeGlow = defs.append('filter').attr('id', 'extremeGlow');
+    extremeGlow.append('feGaussianBlur').attr('stdDeviation', '8').attr('result', 'blur');
+    const merge3 = extremeGlow.append('feMerge');
+    merge3.append('feMergeNode').attr('in', 'blur');
+    merge3.append('feMergeNode').attr('in', 'SourceGraphic');
 
     const zoomBehavior = d3.zoom()
-      .scaleExtent([0.1, 4])
-      .on('zoom', (event) => {
-        g.attr('transform', event.transform);
-      });
+      .scaleExtent([0.2, 4])
+      .on('zoom', (event) => g.attr('transform', event.transform));
 
     svg.call(zoomBehavior);
     zoomRef.current = zoomBehavior;
 
     const g = svg.append('g');
 
-    const stratify = d3.stratify()
-      .id(d => d.id)
-      .parentId(d => d.parentId);
-
+    const stratify = d3.stratify().id(d => d.id).parentId(d => d.parentId);
     const root = stratify(filteredNodes);
 
-    // ADVANCED TREE LAYOUT - NO OVERLAPPING
+    let horizontal = width > height * 1.3;
+    if (root.height > 5 && horizontal) {
+      horizontal = false;
+    }
+
     const treeLayout = d3.tree()
-      .size([width - 100, height - 80])
+      .size(horizontal ? [height - 80, width - 100] : [width - 100, height - 80])
       .separation((a, b) => {
-        // Root level - maximum separation
-        if (a.depth === 0 || b.depth === 0) return 6;
-        
-        // Same parent - moderate separation based on depth
-        if (a.parent === b.parent) {
-          if (a.depth === 1) return 2.8;
-          if (a.depth === 2) return 2.5;
-          if (a.depth === 3) return 2.3;
-          if (a.depth >= 4) return 2.2;
-          return 2.5;
-        }
-        
-        // Different parents - larger separation
-        if (a.depth === 1 && b.depth === 1) return 4.0;
-        if (a.depth === 2 && b.depth === 2) return 3.5;
-        if (a.depth === 3 && b.depth === 3) return 3.2;
-        if (a.depth >= 4 && b.depth >= 4) return 3.0;
-        
-        return 3.5;
+        const labelLen = Math.max(a.data.label?.length || 0, b.data.label?.length || 0);
+        const depthFactor = a.parent === b.parent ? 1.8 : 2.8;
+        return Math.min(12, depthFactor + labelLen / 12);
       });
 
     treeLayout(root);
 
-    // OPTIMIZED NODE STYLES
+    const linkGenerator = horizontal ? d3.linkHorizontal() : d3.linkVertical();
+
     const getNodeStyle = (d) => {
-      const depth = d.depth;
-      if (depth === 0) return {
-        gradient: 'url(#purpleGradient)',
-        border: '#c084fc',
-        text: '#ffffff',
-        width: 240,
-        height: 75,
-        fontSize: '16px',
-        filter: 'url(#strongGlow)'
-      };
-      if (depth === 1) return {
-        gradient: 'url(#blueGradient)',
-        border: '#93c5fd',
-        text: '#ffffff',
-        width: 170,
-        height: 58,
-        fontSize: '13px',
-        filter: 'url(#glow)'
-      };
-      return {
-        gradient: 'url(#greenGradient)',
-        border: '#6ee7b7',
-        text: '#ffffff',
-        width: 150,
-        height: 50,
-        fontSize: '12px',
-        filter: 'url(#glow)'
-      };
+      const priority = d.data.priority || 3;
+      const len = d.data.label?.length || 0;
+      const baseWidth = Math.min(260, 120 + len * 5);
+      const baseHeight = d.depth === 0 ? 75 : d.depth === 1 ? 60 : 50;
+      const fontSize = d.depth === 0 ? '16px' : d.depth === 1 ? '13px' : '12px';
+
+      if (priority === 5) {
+        return {
+          width: baseWidth,
+          height: baseHeight + 5,
+          gradient: 'url(#goldGradient)',
+          border: '#fbbf24',
+          fontSize,
+          filter: 'url(#extremeGlow)',
+        };
+      }
+
+      const gradient = d.depth === 0 ? 'url(#purpleGradient)' 
+        : d.depth === 1 ? 'url(#blueGradient)' 
+        : 'url(#greenGradient)';
+      
+      const border = d.depth === 0 ? '#c084fc' 
+        : d.depth === 1 ? '#93c5fd' 
+        : '#6ee7b7';
+
+      const filter = priority >= 4 ? 'url(#strongGlow)' : 'url(#glow)';
+
+      return { width: baseWidth, height: baseHeight, gradient, border, fontSize, filter };
     };
 
-    // Draw enhanced links
-    const linkGroup = g.append('g').attr('class', 'links');
-
-    linkGroup.selectAll('.link')
+    // Links
+    g.append('g')
+      .selectAll('path')
       .data(root.links())
       .enter()
       .append('path')
-      .attr('class', 'link')
-      .attr('d', link => {
-        return d3.linkVertical()
-          .x(d => d.x)
-          .y(d => d.y)(link);
-      })
+      .attr('d', link =>
+        linkGenerator({
+          source: horizontal ? [link.source.y, link.source.x] : [link.source.x, link.source.y],
+          target: horizontal ? [link.target.y, link.target.x] : [link.target.x, link.target.y],
+        })
+      )
       .attr('fill', 'none')
       .attr('stroke', d => {
-        if (d.target.depth === 1) return '#a78bfa';
-        if (d.target.depth === 2) return '#60a5fa';
-        if (d.target.depth === 3) return '#34d399';
-        return '#22d3ee';
+        const priority = d.target.data.priority || 3;
+        if (priority === 5) return '#fbbf24';
+        return '#6666aa';
       })
       .attr('stroke-width', d => {
-        if (d.target.depth === 1) return 3.5;
-        if (d.target.depth === 2) return 2.5;
-        return 2;
+        const priority = d.target.data.priority || 3;
+        return priority === 5 ? 3.5 : 2;
       })
-      .attr('stroke-dasharray', d => d.target.depth > 1 ? '8,4' : '0')
-      .attr('opacity', 0)
-      .transition()
-      .duration(1200)
-      .delay((d, i) => i * 25)
-      .attr('opacity', d => d.target.depth === 1 ? 0.8 : 0.6);
+      .attr('opacity', 0.6);
 
-    // Draw nodes
-    const nodeGroup = g.append('g').attr('class', 'nodes');
+    // Nodes
+    // Nodes - FIXED: Remove depth offset to align with links
+  const node = g
+    .selectAll('.node')
+    .data(root.descendants())
+    .enter()
+    .append('g')
+    .attr('class', 'node')
+    .attr('transform', d =>
+      horizontal
+        ? `translate(${d.y},${d.x})`  // ✅ REMOVED + d.depth * 25
+        : `translate(${d.x},${d.y})`   // ✅ REMOVED + d.depth * 25
+    );
 
-    const nodes = nodeGroup.selectAll('.node')
-      .data(root.descendants())
-      .enter()
-      .append('g')
-      .attr('class', 'node')
-      .attr('transform', d => `translate(${d.x},${d.y})`)
-      .style('opacity', 0)
-      .style('cursor', 'pointer');
+    // Priority badge
+    node.filter(d => d.data.priority === 5)
+      .append('circle')
+      .attr('cx', d => getNodeStyle(d).width / 2 - 12)
+      .attr('cy', d => -getNodeStyle(d).height / 2 + 12)
+      .attr('r', 8)
+      .attr('fill', '#fbbf24')
+      .attr('stroke', '#ffffff')
+      .attr('stroke-width', 2);
 
-    // Enhanced node backgrounds
-    nodes.append('rect')
-      .attr('class', 'node-bg')
-      .attr('width', d => getNodeStyle(d).width)
-      .attr('height', d => getNodeStyle(d).height)
+    node.filter(d => d.data.priority === 5)
+      .append('text')
+      .attr('x', d => getNodeStyle(d).width / 2 - 12)
+      .attr('y', d => -getNodeStyle(d).height / 2 + 15)
+      .attr('text-anchor', 'middle')
+      .attr('fill', '#ffffff')
+      .attr('font-size', '10px')
+      .attr('font-weight', 'bold')
+      .text('★');
+
+    node
+      .append('rect')
       .attr('x', d => -getNodeStyle(d).width / 2)
       .attr('y', d => -getNodeStyle(d).height / 2)
+      .attr('width', d => getNodeStyle(d).width)
+      .attr('height', d => getNodeStyle(d).height)
       .attr('rx', 14)
-      .attr('ry', 14)
       .attr('fill', d => getNodeStyle(d).gradient)
       .attr('stroke', d => getNodeStyle(d).border)
-      .attr('stroke-width', d => d.depth === 0 ? 4 : 3)
+      .attr('stroke-width', d => d.data.priority === 5 ? 4 : 3)
       .style('filter', d => getNodeStyle(d).filter)
-      .on('mouseover', function(event, d) {
+      .style('transition', 'all 0.3s ease')
+      // 🌀 ENHANCEMENT 1: Subtle pulse glow for purple nodes
+      .style('animation', d => d.depth === 0 ? 'pulse-glow 2.5s infinite alternate' : 'none')
+      // 🎯 ENHANCEMENT 2: Focus effect on click
+      .on('click', function (event, d) {
+        event.stopPropagation();
+        d3.selectAll('.node rect')
+          .transition()
+          .duration(300)
+          .style('opacity', 0.3);
         d3.select(this)
           .transition()
-          .duration(200)
-          .attr('stroke-width', d.depth === 0 ? 6 : 5)
-          .attr('rx', 16)
-          .attr('ry', 16)
-          .style('filter', 'url(#strongGlow)');
+          .duration(300)
+          .style('opacity', 1);
       })
-      .on('mouseout', function(event, d) {
+      // 💡 ENHANCEMENT 3: Tooltip on hover
+      .on('mouseover', function (event, d) {
         d3.select(this)
           .transition()
           .duration(200)
-          .attr('stroke-width', d.depth === 0 ? 4 : 3)
-          .attr('rx', 14)
-          .attr('ry', 14)
+          .attr('stroke-width', 5)
+          .style('filter', 'url(#extremeGlow)');
+
+        // Show tooltip
+        const priority = d.data.priority || 'N/A';
+        const childCount = filteredNodes.filter(n => n.parentId === d.data.id).length;
+        setTooltip({
+          show: true,
+          x: event.pageX + 15,
+          y: event.pageY - 10,
+          content: `
+            <div style="font-weight: bold; margin-bottom: 6px;">${d.data.label}</div>
+            <div style="font-size: 12px; color: #d1d5db;">
+              Level: ${d.depth}<br/>
+              Priority: ${priority}<br/>
+              Children: ${childCount}
+            </div>
+          `
+        });
+      })
+      .on('mouseout', function (event, d) {
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr('stroke-width', d.data.priority === 5 ? 4 : 3)
           .style('filter', getNodeStyle(d).filter);
+
+        // Hide tooltip
+        setTooltip({ show: false, x: 0, y: 0, content: '' });
+      })
+      .on('mousemove', (event) => {
+        setTooltip(prev => ({
+          ...prev,
+          x: event.pageX + 15,
+          y: event.pageY - 10
+        }));
       });
 
-    // Word wrap text with better spacing
-    nodes.each(function(d) {
-      const node = d3.select(this);
+    // Click anywhere to reset focus
+    svg.on('click', function () {
+      d3.selectAll('.node rect')
+        .transition()
+        .duration(300)
+        .style('opacity', 1);
+    });
+
+    // Text
+    node.each(function (d) {
+      const nodeSel = d3.select(this);
       const style = getNodeStyle(d);
-      const text = d.data.label || '';
-      
-      const words = text.split(/\s+/);
-      const maxWidth = style.width - 24;
-      const lineHeight = d.depth === 0 ? 18 : 15;
+      const words = d.data.label.split(/\s+/);
+      const lineHeight = 15;
+      const maxWidth = style.width - 20;
       const lines = [];
-      let currentLine = [];
-      
-      const testText = node.append('text')
-        .attr('opacity', 0)
-        .attr('font-size', style.fontSize);
-      
+      let line = [];
+
+      const temp = nodeSel.append('text').attr('opacity', 0).attr('font-size', style.fontSize);
+
       words.forEach(word => {
-        currentLine.push(word);
-        testText.text(currentLine.join(' '));
-        if (testText.node().getComputedTextLength() > maxWidth) {
-          currentLine.pop();
-          if (currentLine.length > 0) {
-            lines.push(currentLine.join(' '));
-          }
-          currentLine = [word];
+        line.push(word);
+        temp.text(line.join(' '));
+        if (temp.node().getComputedTextLength() > maxWidth) {
+          line.pop();
+          lines.push(line.join(' '));
+          line = [word];
         }
       });
-      if (currentLine.length > 0) {
-        lines.push(currentLine.join(' '));
-      }
-      testText.remove();
-      
-      const maxLines = d.depth === 0 ? 2 : 3;
-      const displayLines = lines.slice(0, maxLines);
-      if (lines.length > maxLines) {
-        displayLines[maxLines - 1] = displayLines[maxLines - 1].substring(0, 16) + '...';
-      }
-      
-      const startY = -(displayLines.length - 1) * lineHeight / 2;
-      displayLines.forEach((line, i) => {
-        node.append('text')
-          .attr('dy', startY + (i * lineHeight))
+      if (line.length) lines.push(line.join(' '));
+      temp.remove();
+
+      const startY = -(lines.length - 1) * lineHeight / 2;
+      lines.forEach((l, i) => {
+        nodeSel
+          .append('text')
           .attr('text-anchor', 'middle')
-          .attr('fill', style.text)
+          .attr('dy', startY + i * lineHeight)
+          .attr('fill', '#fff')
           .attr('font-size', style.fontSize)
-          .attr('font-weight', d.depth === 0 ? 'bold' : d.depth === 1 ? '600' : '500')
+          .attr('font-weight', d.depth === 0 ? 'bold' : '500')
+          .style('text-shadow', '0 1px 3px rgba(0,0,0,0.3)')
           .style('pointer-events', 'none')
-          .style('text-shadow', '0 2px 4px rgba(0,0,0,0.3)')
-          .text(line);
+          .text(l);
       });
     });
 
-    // Staggered animation
-    nodes.transition()
-      .duration(900)
-      .delay((d, i) => i * 60 + 400)
-      .style('opacity', 1);
-
-    // Smart auto-fit with padding
+    // Auto-fit
     setTimeout(() => {
       const bounds = g.node().getBBox();
-      const fullWidth = bounds.width;
-      const fullHeight = bounds.height;
-      const midX = bounds.x + fullWidth / 2;
-      const midY = bounds.y + fullHeight / 2;
+      const scale = 0.8 / Math.max(bounds.width / width, bounds.height / height);
+      const translate = [
+        width / 2 - scale * (bounds.x + bounds.width / 2),
+        height / 2 - scale * (bounds.y + bounds.height / 2),
+      ];
 
-      if (fullWidth && fullHeight) {
-        const scale = 0.92 / Math.max(fullWidth / width, fullHeight / height);
-        const translate = [
-          width / 2 - scale * midX,
-          height / 2 - scale * midY
-        ];
-
-        svg.transition()
-          .duration(1200)
-          .ease(d3.easeCubicOut)
-          .call(
-            zoomBehavior.transform,
-            d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale)
-          );
-      }
-    }, 1800);
-
+      svg
+        .transition()
+        .duration(1000)
+        .call(zoomBehavior.transform, d3.zoomIdentity.translate(translate[0], translate[1]).scale(scale));
+    }, 1000);
   }, [mindMapData, filterToImportantNodes]);
 
   const handleZoomIn = () => {
-    if (zoomRef.current && svgRef.current) {
-      d3.select(svgRef.current)
-        .transition()
-        .duration(400)
-        .ease(d3.easeCubicOut)
-        .call(zoomRef.current.scaleBy, 1.4);
-    }
+    d3.select(svgRef.current).transition().duration(400).call(zoomRef.current.scaleBy, 1.3);
   };
 
   const handleZoomOut = () => {
-    if (zoomRef.current && svgRef.current) {
-      d3.select(svgRef.current)
-        .transition()
-        .duration(400)
-        .ease(d3.easeCubicOut)
-        .call(zoomRef.current.scaleBy, 0.7);
-    }
+    d3.select(svgRef.current).transition().duration(400).call(zoomRef.current.scaleBy, 0.7);
   };
 
   const handleReset = () => {
-    if (zoomRef.current && svgRef.current) {
-      const width = containerRef.current.clientWidth;
-      const height = containerRef.current.clientHeight;
-      d3.select(svgRef.current)
-        .transition()
-        .duration(800)
-        .ease(d3.easeCubicOut)
-        .call(
-          zoomRef.current.transform,
-          d3.zoomIdentity.translate(width / 2, height / 2).scale(1)
-        );
-    }
+    const width = containerRef.current.clientWidth;
+    const height = containerRef.current.clientHeight;
+    d3.select(svgRef.current)
+      .transition()
+      .duration(800)
+      .call(zoomRef.current.transform, d3.zoomIdentity.translate(width / 2, height / 2).scale(1));
+    
+    // Reset focus
+    d3.selectAll('.node rect')
+      .transition()
+      .duration(300)
+      .style('opacity', 1);
   };
 
   const exportAsImage = () => {
-    if (!svgRef.current) return;
     const svgElement = svgRef.current;
     const serializer = new XMLSerializer();
     let svgString = serializer.serializeToString(svgElement);
-    svgString = svgString.replace('<svg', '<svg style="background: #0f0f23;"');
+    svgString = svgString.replace(/style="[^"]*"/g, '');
+    svgString = svgString.replace('<svg', '<svg style="background:#0f0f23"');
     const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -392,7 +441,7 @@ export default function MindMapView({ mindMapData }) {
 
   if (!mindMapData?.nodes?.length) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[600px] bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 rounded-2xl border border-purple-500/20">
+      <div className="flex items-center justify-center h-full bg-gradient-to-br from-gray-900 via-purple-900/20 to-gray-900 rounded-2xl border border-purple-500/20">
         <div className="text-center p-8">
           <Lightbulb className="mx-auto w-24 h-24 mb-6 text-purple-400 opacity-40 animate-pulse" />
           <p className="text-2xl font-semibold text-gray-200 mb-3">No mind map data available</p>
@@ -402,14 +451,27 @@ export default function MindMapView({ mindMapData }) {
     );
   }
 
+  const hasPriorityNodes = mindMapData.nodes?.some(n => n.priority === 5);
+
   return (
-    <div className="h-[950px] w-full bg-gradient-to-br from-gray-900 via-purple-900/10 to-gray-900 rounded-2xl overflow-hidden shadow-2xl border border-purple-500/20">
-      {/* Enhanced Header */}
+    <div className="h-[950px] w-full bg-gradient-to-br from-gray-900 via-purple-900/10 to-gray-900 rounded-2xl overflow-hidden border border-purple-500/20 shadow-2xl">
+      {/* 🌌 CSS for pulse glow animation */}
+      <style jsx>{`
+        @keyframes pulse-glow {
+          0%, 100% { 
+            filter: drop-shadow(0 0 6px #a855f7);
+          }
+          50% { 
+            filter: drop-shadow(0 0 12px #ec4899);
+          }
+        }
+      `}</style>
+
       <div className="px-6 py-5 bg-gradient-to-r from-black/50 via-purple-900/30 to-black/50 backdrop-blur-md border-b border-purple-500/20">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-4">
             <div className="p-2.5 bg-gradient-to-br from-purple-500 via-purple-600 to-pink-500 rounded-xl shadow-lg shadow-purple-500/50">
-              <Lightbulb size={26} className="text-white" />
+              <Sparkles size={26} className="text-white" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-white mb-1 bg-gradient-to-r from-purple-300 via-pink-300 to-purple-400 bg-clip-text text-transparent">
@@ -418,10 +480,16 @@ export default function MindMapView({ mindMapData }) {
               <div className="flex items-center gap-4 text-sm">
                 <span className="text-gray-400 flex items-center gap-1.5 font-medium">
                   <Filter size={14} />
-                  Top 25 concepts
+                  Top 25 by AI
                 </span>
-                <span className="text-purple-400">•</span>
-                <span className="text-gray-400 font-medium">{mindMapData.nodes?.length || 0} total nodes</span>
+                {hasPriorityNodes && (
+                  <>
+                    <span className="text-purple-400">•</span>
+                    <span className="text-yellow-400 flex items-center gap-1 font-medium">
+                      ★ Priority nodes
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -435,37 +503,53 @@ export default function MindMapView({ mindMapData }) {
         </div>
       </div>
 
-      {/* Canvas */}
       <div ref={containerRef} className="relative" style={{ width: '100%', height: 'calc(100% - 160px)' }}>
         <svg
           ref={svgRef}
           className="w-full h-full"
           style={{ cursor: 'grab' }}
-          onMouseDown={(e) => e.currentTarget.style.cursor = 'grabbing'}
-          onMouseUp={(e) => e.currentTarget.style.cursor = 'grab'}
-          onMouseLeave={(e) => e.currentTarget.style.cursor = 'grab'}
+          onMouseDown={(e) => (e.currentTarget.style.cursor = 'grabbing')}
+          onMouseUp={(e) => (e.currentTarget.style.cursor = 'grab')}
+          onMouseLeave={(e) => (e.currentTarget.style.cursor = 'grab')}
         />
 
-        {/* Enhanced Floating Controls */}
+        {/* 💡 Tooltip */}
+        {tooltip.show && (
+          <div
+            style={{
+              position: 'fixed',
+              left: tooltip.x,
+              top: tooltip.y,
+              pointerEvents: 'none',
+              zIndex: 1000,
+            }}
+            className="bg-gradient-to-br from-gray-900 to-purple-900 text-white px-4 py-3 rounded-xl shadow-2xl border border-purple-500/40 text-sm backdrop-blur-md"
+            dangerouslySetInnerHTML={{ __html: tooltip.content }}
+          />
+        )}
+
         <div className="absolute bottom-8 right-8 flex flex-col gap-2 bg-gradient-to-br from-black/90 to-purple-900/80 backdrop-blur-xl p-3 rounded-2xl border border-purple-500/40 shadow-2xl">
-          <button onClick={handleZoomIn} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all duration-200 group" title="Zoom In">
-            <ZoomIn size={22} className="text-purple-200 group-hover:text-white group-hover:scale-110 transition-transform" />
+          <button onClick={handleZoomIn} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all group" title="Zoom In">
+            <ZoomIn size={22} className="text-purple-200 group-hover:scale-110 transition-transform" />
           </button>
-          <div className="h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
-          <button onClick={handleZoomOut} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all duration-200 group" title="Zoom Out">
-            <ZoomOut size={22} className="text-purple-200 group-hover:text-white group-hover:scale-110 transition-transform" />
+          <button onClick={handleZoomOut} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all group" title="Zoom Out">
+            <ZoomOut size={22} className="text-purple-200 group-hover:scale-110 transition-transform" />
           </button>
-          <div className="h-px bg-gradient-to-r from-transparent via-purple-500/50 to-transparent" />
-          <button onClick={handleReset} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all duration-200 group" title="Reset View">
-            <Maximize2 size={22} className="text-purple-200 group-hover:text-white group-hover:scale-110 transition-transform" />
+          <button onClick={handleReset} className="p-3.5 hover:bg-purple-500/30 rounded-xl transition-all group" title="Reset View">
+            <Maximize2 size={22} className="text-purple-200 group-hover:scale-110 transition-transform" />
           </button>
         </div>
       </div>
 
-      {/* Enhanced Legend */}
       <div className="px-6 py-5 bg-gradient-to-r from-black/50 via-purple-900/30 to-black/50 backdrop-blur-md border-t border-purple-500/20">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-8">
+            {hasPriorityNodes && (
+              <div className="flex items-center gap-2.5">
+                <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-yellow-400 via-yellow-500 to-orange-500 border-2 border-yellow-300 shadow-lg shadow-yellow-500/60" />
+                <span className="text-sm text-gray-200 font-semibold">High Priority ★</span>
+              </div>
+            )}
             <div className="flex items-center gap-2.5">
               <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-purple-500 via-purple-600 to-pink-600 border-2 border-purple-300 shadow-lg shadow-purple-500/60" />
               <span className="text-sm text-gray-200 font-semibold">Main Topic</span>
@@ -480,7 +564,7 @@ export default function MindMapView({ mindMapData }) {
             </div>
           </div>
           <div className="text-xs text-gray-500 italic font-medium">
-            Scroll to zoom • Drag to pan • Hover for interaction
+            Powered by Gemini AI • Click nodes to focus
           </div>
         </div>
       </div>
